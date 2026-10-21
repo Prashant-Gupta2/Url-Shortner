@@ -11,10 +11,12 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+
 app.use(cors({
   origin: [
     "http://localhost:5173",
-    "https://url-shortner-lyart-two.vercel.app"
+    "https://url-shortner-lyart-two.vercel.app",
+    "https://url-shortner-p3fh6cb35-prashant-kumars-projects-cf441b30.vercel.app"
   ]
 }));
 
