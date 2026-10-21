@@ -17,7 +17,6 @@ app.use(cors({
   ].filter(Boolean)
 }));
 
-
 connectDB();
 
 

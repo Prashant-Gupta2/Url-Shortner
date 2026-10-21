@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 
-const API_URL = "http://localhost:4000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Home() {
   const [url, setUrl] = useState("");
@@ -29,8 +29,9 @@ export default function Home() {
     setError("");
     setShortUrl("");
 
-  const response = await axios.post(
-  "http://localhost:4000/api/shorten",
+  
+const response = await axios.post(
+  `${import.meta.env.VITE_API_URL}/api/shorten`,
   { originalUrl },
   {
     headers: {
@@ -41,14 +42,17 @@ export default function Home() {
 
 
     // Use the short URL returned by your backend.
-    const result = response.data.shortUrl
-      ? response.data.shortUrl.startsWith("http")
-        ? response.data.shortUrl
-        : `http://localhost:4000/api/shorten`
-      : `http://localhost:4000/api/${response.data.shortCode}`;
+   
+const result = response.data.shortUrl
+  ? response.data.shortUrl.startsWith("http")
+    ? response.data.shortUrl
+    : `${API_URL}/api/shorten`
+  : `${API_URL}/api/${response.data.shortCode}`;
+
 
     setShortUrl(result);
-  } catch (err) {
+  } 
+  catch (err) {
     setError(
       err.response?.data?.message || "Failed to shorten URL."
     );
