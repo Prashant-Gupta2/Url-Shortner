@@ -20,13 +20,15 @@ app.use(cors({
 
 connectDB();
 
-app.get("/", (req, res) => {
-  res.send("URL Shortener Backend is running!");
-});
 
 app.use('/api', urlRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api', passRoutes);
+
+app.get("/", (req, res) => {
+  res.send("URL Shortener Backend is running!");
+});
+
 
 const PORT = process.env.PORT || 4000;
 
