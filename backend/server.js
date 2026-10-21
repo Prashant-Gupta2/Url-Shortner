@@ -1,0 +1,31 @@
+const express = require('express');
+const dotenv = require('dotenv');
+const connectDB = require('./config/db');
+const urlRoutes = require('./routes/UrlRoutes');
+const authRoutes = require('./routes/AuthRoutes');
+const passRoutes = require('./routes/PasswordRoutes');
+const cors = require('cors');
+
+dotenv.config();
+
+const app = express();
+app.use(express.json());
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    process.env.FRONTEND_URL
+  ].filter(Boolean)
+}));
+
+
+connectDB();
+
+app.use('/api', urlRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api', passRoutes);
+
+const PORT = process.env.PORT || 4000;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
+});
