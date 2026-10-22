@@ -1,7 +1,6 @@
 const User = require('../models/User');
 const crypto = require('crypto');
 const transporter = require('../config/transporter');
-const bcrypt = require('bcryptjs');
 
 
 const forgetPassword = async (req, res) => {
