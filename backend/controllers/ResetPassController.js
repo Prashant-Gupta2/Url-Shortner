@@ -2,7 +2,6 @@ const User = require('../models/User');
 const crypto = require('crypto');
 const transporter = require('../config/transporter');
 
-
 const forgetPassword = async (req, res) => {
   try {
     const email = req.body.email?.trim().toLowerCase();
