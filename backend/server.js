@@ -12,13 +12,22 @@ const app = express();
 app.use(express.json());
 
 
-app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://url-shortner-lyart-two.vercel.app",
-    "https://url-shortner-p3fh6cb35-prashant-kumars-projects-cf441b30.vercel.app"
-  ]
-}));
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://url-shortner-lyart-two.vercel.app",
+  "https://url-shortner-p3fh6cb35-prashant-kumars-projects-cf441b30.vercel.app",
+  "https://url-shortner-phmns3q26-prashant-kumars-projects-cf441b30.vercel.app"
+];
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+  })
+);
+
 
 
 connectDB();
