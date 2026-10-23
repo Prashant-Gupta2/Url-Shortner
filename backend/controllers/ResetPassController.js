@@ -35,8 +35,7 @@ const forgetPassword = async (req, res) => {
 
     await user.save();
 
-    const resetURL =
-      `${process.env.BASE_URL}/reset-password/${resetToken}`;
+    const resetURL =`${process.env.BASE_URL.replace(/\/+$/, "")}/reset-password/${resetToken}`;
 
     try {
       await transporter.sendMail({
