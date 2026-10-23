@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import {
   useLocation,
@@ -7,8 +6,15 @@ import {
 } from "react-router-dom";
 import axios from "axios";
 
-const API_URL = `${import.meta.env.VITE_API_URL}/api/auth`;
-const RESET_API_URL = `${import.meta.env.VITE_API_URL}/api`;
+const BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/+$/, "");
+
+const api = axios.create({
+  baseURL: BASE_URL,
+  timeout: 15000,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
 export default function Auth() {
   const location = useLocation();
@@ -32,71 +38,112 @@ export default function Auth() {
     }
   }, [token]);
 
+  // Clear previous messages when changing modes.
+  function changeMode(nextMode) {
+    setError("");
+    setSuccess("");
+    setMode(nextMode);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
+
+    if (loading) return;
 
     setError("");
     setSuccess("");
 
-    try {
-      setLoading(true);
+    if (!BASE_URL) {
+      setError("Server configuration error. Please try again later.");
+      return;
+    }
 
-      // 1. Forgot password: send reset email
+    const normalizedEmail = email.trim().toLowerCase();
+    const trimmedName = name.trim();
+
+    if (mode !== "reset" && !normalizedEmail) {
+      setError("Please enter your email address.");
+      return;
+    }
+
+    if (mode === "signup" && !trimmedName) {
+      setError("Please enter your name.");
+      return;
+    }
+
+    if (
+      ["signup", "reset"].includes(mode) &&
+      (password.length < 8 || password.length > 128)
+    ) {
+      setError("Password must be between 8 and 128 characters.");
+      return;
+    }
+
+    if (["login", "signup"].includes(mode) && !password) {
+      setError("Please enter your password.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // 1. Forgot password
       if (mode === "forgot") {
-        const response = await axios.post(
-          `${RESET_API_URL}/forget-password`,
-          {
-            email: email.trim().toLowerCase(),
-          }
-        );
+        const response = await api.post("/api/forget-password", {
+          email: normalizedEmail,
+        });
 
         setSuccess(
-          response.data.message ||
+          response.data?.message ||
             "If an account exists, a reset link will be sent."
         );
 
         return;
       }
 
-      // 2. Reset password: submit token and new password
+      // 2. Reset password
       if (mode === "reset") {
         if (!token) {
-          setError("Reset token is missing. Please use the email link.");
+          setError(
+            "Reset token is missing. Please use the link from your email."
+          );
           return;
         }
 
-        const response = await axios.post(
-          `${RESET_API_URL}/reset-password/${token}`,
+        const response = await api.post(
+          `/api/reset-password/${encodeURIComponent(token)}`,
           { password }
         );
 
+        setPassword("");
         setSuccess(
-          response.data.message || "Password reset successfully."
+          response.data?.message || "Password reset successfully."
         );
 
-        setPassword("");
-
-        // Allow the success message to be displayed
-        setTimeout(() => {
-          navigate("/auth", {
-            replace: true,
-            state: { mode: "login" },
-          });
-        }, 1500);
+        // Remove the token from the address bar immediately.
+        navigate("/auth", {
+          replace: true,
+          state: {
+            mode: "login",
+            resetMessage:
+              response.data?.message ||
+              "Password reset successfully. Please log in.",
+          },
+        });
 
         return;
       }
 
       // 3. Signup
       if (mode === "signup") {
-        const response = await axios.post(`${API_URL}/signup`, {
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
+        const response = await api.post("/api/auth/signup", {
+          name: trimmedName,
+          email: normalizedEmail,
           password,
         });
 
         setSuccess(
-          response.data.message ||
+          response.data?.message ||
             "Signup successful. Please log in."
         );
 
@@ -109,26 +156,43 @@ export default function Auth() {
       }
 
       // 4. Login
-      const response = await axios.post(`${API_URL}/signin`, {
-        email: email.trim().toLowerCase(),
+      const response = await api.post("/api/auth/signin", {
+        email: normalizedEmail,
         password,
       });
 
-      const { token: authToken, user } = response.data;
+      const { token: authToken, user } = response.data || {};
 
+      if (!authToken || !user) {
+        throw new Error("Invalid authentication response.");
+      }
+
+      // Retained for compatibility with your current application.
       localStorage.setItem("token", authToken);
       localStorage.setItem("user", JSON.stringify(user));
 
-      navigate("/");
+      navigate("/", { replace: true });
     } catch (err) {
-      console.error("Request failed:", err);
-      console.log("Status:", err.response?.status);
-      console.log("Backend error:", err.response?.data);
-
-      setError(
-        err.response?.data?.message ||
-          "Something went wrong. Please try again."
-      );
+      // Do not log credentials, tokens, reset links, or response bodies.
+      if (err.response) {
+        setError(
+          err.response.data?.message ||
+            "Request failed. Please try again."
+        );
+      } else if (err.code === "ECONNABORTED") {
+        setError(
+          "The request timed out. Please try again."
+        );
+      } else if (err instanceof Error &&
+                 err.message === "Invalid authentication response.") {
+        setError(
+          "Unable to log in. Please try again."
+        );
+      } else {
+        setError(
+          "Unable to connect to the server. Please try again."
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -142,11 +206,16 @@ export default function Auth() {
         type="button"
         className="back-btn"
         onClick={() => navigate("/")}
+        disabled={loading}
       >
         ← Back to home
       </button>
 
-      <form className="auth-card" onSubmit={handleSubmit}>
+      <form
+        className="auth-card"
+        onSubmit={handleSubmit}
+        noValidate
+      >
         <h2>
           {mode === "login"
             ? "Welcome back!"
@@ -179,36 +248,44 @@ export default function Auth() {
           </p>
         )}
 
-        {/* Name field: signup only */}
         {mode === "signup" && (
           <input
             type="text"
             placeholder="Your name"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            autoComplete="name"
+            maxLength={100}
             required
+            disabled={loading}
           />
         )}
 
-        {/* Email field: hidden during password reset */}
         {mode !== "reset" && (
           <input
             type="email"
             placeholder="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            maxLength={254}
             required
+            disabled={loading}
           />
         )}
 
-        {/* Password field: hidden during forgot-password request */}
         {mode !== "forgot" && (
           <input
             type="password"
-            placeholder={isReset ? "New password" : "Password"}
+            placeholder={
+              isReset ? "New password" : "Password"
+            }
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            minLength={6}
+            minLength={
+              ["signup", "reset"].includes(mode) ? 8 : undefined
+            }
+            maxLength={128}
             autoComplete={
               isReset
                 ? "new-password"
@@ -217,19 +294,16 @@ export default function Auth() {
                 : "new-password"
             }
             required
+            disabled={loading}
           />
         )}
 
-        {/* Forgot password link: login only */}
         {mode === "login" && (
           <button
             type="button"
             className="text-btn forgot-btn"
-            onClick={() => {
-              setError("");
-              setSuccess("");
-              setMode("forgot");
-            }}
+            onClick={() => changeMode("forgot")}
+            disabled={loading}
           >
             Forgot password?
           </button>
@@ -256,11 +330,8 @@ export default function Auth() {
             <button
               type="button"
               className="text-btn"
-              onClick={() => {
-                setError("");
-                setSuccess("");
-                setMode("login");
-              }}
+              onClick={() => changeMode("login")}
+              disabled={loading}
             >
               ← Back to login
             </button>
@@ -268,7 +339,13 @@ export default function Auth() {
             <button
               type="button"
               className="text-btn"
-              onClick={() => navigate("/auth")}
+              onClick={() =>
+                navigate("/auth", {
+                  replace: true,
+                  state: { mode: "login" },
+                })
+              }
+              disabled={loading}
             >
               ← Back to login
             </button>
@@ -281,13 +358,12 @@ export default function Auth() {
               <button
                 type="button"
                 className="text-btn"
-                onClick={() => {
-                  setError("");
-                  setSuccess("");
-                  setMode(
+                onClick={() =>
+                  changeMode(
                     mode === "login" ? "signup" : "login"
-                  );
-                }}
+                  )
+                }
+                disabled={loading}
               >
                 {mode === "login" ? "Sign up" : "Log in"}
               </button>
