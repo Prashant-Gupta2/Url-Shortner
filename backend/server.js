@@ -5,11 +5,13 @@ const urlRoutes = require('./routes/UrlRoutes');
 const authRoutes = require('./routes/AuthRoutes');
 const passRoutes = require('./routes/PasswordRoutes');
 const cors = require('cors');
+const halmet = require('helmet');
 
 dotenv.config();
 
 const app = express();
-app.use(express.json());
+app.use(halmet());
+app.use(express.json({ limit: "15kb" }));
 
 
 
